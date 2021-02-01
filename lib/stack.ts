@@ -1,30 +1,45 @@
+import { Port } from "@aws-cdk/aws-ec2";
 import * as cdk from "@aws-cdk/core";
-import { LemmyApp } from "./lemmy/app";
-import ec2 = require("@aws-cdk/aws-ec2");
-import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
-import { SecurityGroup } from "@aws-cdk/aws-ec2";
+import { Bastion } from "./bastion";
 import { Database } from "./database";
+import { DNS } from "./dns";
+import { LemmyECS } from "./lemmy/ecs";
+import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
+import ec2 = require("@aws-cdk/aws-ec2");
 
 export class Stack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // VPC
     const vpc = new ec2.Vpc(this, "VPC");
-    const dbSecurityGroup = new SecurityGroup(this, "DBSecurityGroup", {
-      vpc,
-      description: "Database ingress",
-    });
 
+    // Bastion
+    const bastion = new Bastion(this, "Bastion", { vpc });
+
+    // DB
     const db = new Database(this, "DB", {
       vpc,
-      securityGroup: dbSecurityGroup,
     });
-    const lemmyLB = new LemmyLoadBalancer(this, "LemmyLoadBalancer", { vpc });
-    const lemmyApp = new LemmyApp(this, "LemmyApp", {
-      db,
-      lemmyLB,
+    db.securityGroup.addIngressRule(bastion.securityGroup, Port.tcp(5432));
+
+    // ALB
+    const loadBalancer = new LemmyLoadBalancer(this, "LemmyLoadBalancer", {
       vpc,
-      dbSecurityGroup,
+    });
+
+    // DNS
+    const domain = new DNS(this, "DNS", {
+      loadBalancer: loadBalancer.alb,
+      bastion,
+    });
+
+    // ECS
+    const ecs = new LemmyECS(this, "LemmyECS", {
+      vpc,
+      lemmyLB: loadBalancer,
+      db: db.cluster,
+      dbSecurityGroup: db.securityGroup,
     });
   }
 }

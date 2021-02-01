@@ -4,5 +4,9 @@
     "us-west-2b",
     "us-west-2c",
     "us-west-2d"
-  ]
+  ],
+  "hosted-zone:account=450542611688:domainName=federation.dev:region=us-west-2": {
+    "Id": "/hostedzone/Z0266198IOHWFCMZWF2",
+    "Name": "federation.dev."
+  }
 }

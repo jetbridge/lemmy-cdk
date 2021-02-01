@@ -1,54 +1,154 @@
-import elbv2 = require("@aws-cdk/aws-elasticloadbalancingv2");
-import * as core from "@aws-cdk/core";
 import { Certificate } from "@aws-cdk/aws-certificatemanager";
-import { HostedZone } from "@aws-cdk/aws-route53";
 import { Vpc } from "@aws-cdk/aws-ec2";
+import {
+  ApplicationLoadBalancer,
+  ApplicationProtocol,
+  ApplicationTargetGroup,
+  IpAddressType,
+  ListenerAction,
+  ListenerCondition,
+  TargetType,
+} from "@aws-cdk/aws-elasticloadbalancingv2";
+import * as core from "@aws-cdk/core";
+import { Duration } from "@aws-cdk/core";
+import { IFRAMELY_PORT } from "./iframely";
+import { PICTRS_PORT } from "./pictrs";
 
 interface ILBProps {
   vpc: Vpc;
 }
 
 export class LemmyLoadBalancer extends core.Construct {
-  backendTargetGroup: elbv2.ApplicationTargetGroup;
-  frontendTargetGroup: elbv2.ApplicationTargetGroup;
-  alb: elbv2.ApplicationLoadBalancer;
+  backendTargetGroup: ApplicationTargetGroup;
+  frontendTargetGroup: ApplicationTargetGroup;
+  iframelyTargetGroup: ApplicationTargetGroup;
+  pictrsTargetGroup: ApplicationTargetGroup;
+  alb: ApplicationLoadBalancer;
 
   constructor(scope: core.Construct, id: string, { vpc }: ILBProps) {
     super(scope, id);
 
     // ALB
-    const lb = new elbv2.ApplicationLoadBalancer(this, "LemmyLB", {
+    const lb = new ApplicationLoadBalancer(this, "LemmyLB", {
       vpc,
       internetFacing: true,
+      http2Enabled: true,
+      ipAddressType: IpAddressType.IPV4, // dual-stack would be nice, not super easy to do yet
     });
-
-    // listeners
-    const listener = lb.addListener("Listener", {
-      port: 80,
-      // certificates: [],
-    });
-    listener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
 
     // target group for lemmy backend
-    const backendTg = new elbv2.ApplicationTargetGroup(
-      this,
-      "LemmyBETargetGroup",
-      { vpc, protocol: elbv2.ApplicationProtocol.HTTP, port: 8536 }
-    );
+    const backendTg = new ApplicationTargetGroup(this, "LemmyBETargetGroup", {
+      vpc,
+      protocol: ApplicationProtocol.HTTP,
+      port: 8536,
+      targetGroupName: "Lemmy-Backend-v2",
+      targetType: TargetType.IP,
+      healthCheck: {
+        path: "/api/v2/categories",
+        interval: Duration.seconds(10),
+        healthyThresholdCount: 2,
+      },
+    });
     // target group for lemmy frontend
-    const frontendTg = new elbv2.ApplicationTargetGroup(
-      this,
-      "LemmyFETargetGroup",
-      { vpc, protocol: elbv2.ApplicationProtocol.HTTP, port: 1234 }
-    );
+    const frontendTg = new ApplicationTargetGroup(this, "LemmyFETargetGroup", {
+      vpc,
+      protocol: ApplicationProtocol.HTTP,
+      port: 1234,
+      targetType: TargetType.IP,
+      targetGroupName: "Lemmy-Frontend-v2",
+      healthCheck: {
+        interval: Duration.seconds(10),
+        healthyThresholdCount: 2,
+        port: "1234", // TODO: maybe not needed?
+        path: "/static/assets/manifest.webmanifest", // temp - should be /
+      },
+    });
+    // target group for pictrs
+    const pictrsTg = new ApplicationTargetGroup(this, "PictrsTargetGroup", {
+      vpc,
+      protocol: ApplicationProtocol.HTTP,
+      port: PICTRS_PORT,
+      targetType: TargetType.IP,
+      targetGroupName: "Pictrs-v2",
+      healthCheck: {
+        interval: Duration.seconds(10),
+        healthyThresholdCount: 2,
+        port: PICTRS_PORT.toString(),
+      },
+    });
+    // target group for iframely
+    const iframelyTg = new ApplicationTargetGroup(this, "IFramelyTargetGroup", {
+      vpc,
+      protocol: ApplicationProtocol.HTTP,
+      port: IFRAMELY_PORT,
+      targetType: TargetType.IP,
+      targetGroupName: "IFramely",
+      healthCheck: {
+        interval: Duration.seconds(10),
+        healthyThresholdCount: 2,
+        port: IFRAMELY_PORT.toString(),
+      },
+    });
 
     // listeners -> target groups
-    listener.addTargetGroups("HTTPAppTargetGroups", {
-      targetGroups: [frontendTg],
+
+    // listeners
+    const httpListener = lb.addListener("FrontendHTTPListener", {
+      protocol: ApplicationProtocol.HTTP,
+      open: true,
+      defaultTargetGroups: [frontendTg],
+    });
+    const httpsListener = lb.addListener("FrontendHTTPSListener", {
+      protocol: ApplicationProtocol.HTTPS,
+      open: true,
+      defaultTargetGroups: [frontendTg],
+      certificates: [
+        Certificate.fromCertificateArn(
+          this,
+          "FedDevCert",
+          "arn:aws:acm:us-west-2:450542611688:certificate/68f4c06e-b71e-4c71-bd89-7ee5efc0233b"
+        ),
+      ],
+    });
+    httpListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
+
+    const routes = [
+      // /api/* -> backend
+      {
+        action: ListenerAction.forward([backendTg]),
+        conditions: [ListenerCondition.pathPatterns(["/api/*"])],
+        priority: 1,
+      },
+      // /pictrs/*
+      {
+        action: ListenerAction.forward([pictrsTg]),
+        conditions: [ListenerCondition.pathPatterns(["/pictrs/*"])],
+        priority: 2,
+      },
+      // /iframely/*
+      {
+        action: ListenerAction.forward([iframelyTg]),
+        conditions: [ListenerCondition.pathPatterns(["/iframely/*"])],
+        priority: 3,
+      },
+    ];
+    routes.forEach((routeAction, index) => {
+      httpListener.addAction(`BackendHTTPAPIRouter-${index}`, routeAction);
+      httpsListener.addAction(`BackendHTTPSAPIRouter-${index}`, routeAction);
+    });
+
+    // backend listener - maybe not needed?
+    const backendListener = lb.addListener("BackendListener", {
+      port: 8536,
+      open: false,
+      defaultTargetGroups: [backendTg],
+      protocol: ApplicationProtocol.HTTP,
     });
 
     this.backendTargetGroup = backendTg;
     this.frontendTargetGroup = frontendTg;
+    this.iframelyTargetGroup = iframelyTg;
+    this.pictrsTargetGroup = pictrsTg;
     this.alb = lb;
   }
 }
