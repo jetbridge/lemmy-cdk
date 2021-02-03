@@ -6,6 +6,8 @@ import { DNS } from "./dns";
 import { LemmyECS } from "./lemmy/ecs";
 import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
 import ec2 = require("@aws-cdk/aws-ec2");
+import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
+import { RemovalPolicy } from "@aws-cdk/core";
 
 export class Stack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -34,9 +36,21 @@ export class Stack extends cdk.Stack {
       bastion,
     });
 
+    // EFS - storage for files
+    const fs = new FileSystem(this, "FS", {
+      vpc,
+      encrypted: true,
+      lifecyclePolicy: LifecyclePolicy.AFTER_60_DAYS,
+      performanceMode: PerformanceMode.GENERAL_PURPOSE,
+      removalPolicy: RemovalPolicy.RETAIN,
+      fileSystemName: "LemmyFS",
+      enableAutomaticBackups: false,
+    });
+
     // ECS
     const ecs = new LemmyECS(this, "LemmyECS", {
       vpc,
+      fs,
       lemmyLB: loadBalancer,
       db: db.cluster,
       dbSecurityGroup: db.securityGroup,

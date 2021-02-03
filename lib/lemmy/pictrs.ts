@@ -1,4 +1,4 @@
-import { SecurityGroup } from "@aws-cdk/aws-ec2";
+import { Port, SecurityGroup } from "@aws-cdk/aws-ec2";
 import {
   Cluster,
   ContainerImage,
@@ -6,16 +6,19 @@ import {
   FargateService,
   FargateTaskDefinition,
   LogDriver,
+  Volume,
   Protocol,
 } from "@aws-cdk/aws-ecs";
-import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
+import { FileSystem } from "@aws-cdk/aws-efs";
 import { INamespace } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
+import { Duration } from "@aws-cdk/core";
 import { IECSProps } from "./ecs";
 
 interface IPictrsProps extends IECSProps {
   cluster: Cluster;
   namespace: INamespace;
+  fs: FileSystem;
 }
 
 export const PICTRS_PORT = 8080;
@@ -24,42 +27,47 @@ const PICTRS_IMAGE = "asonix/pictrs:v0.2.5-r0";
 
 export class Pictrs extends core.Construct {
   securityGroup: SecurityGroup;
-  efs: FileSystem;
 
   constructor(
     scope: core.Construct,
     id: string,
-    { vpc, cluster, namespace, lemmyLB }: IPictrsProps
+    { vpc, cluster, namespace, lemmyLB, fs }: IPictrsProps
   ) {
     super(scope, id);
 
-    // EFS - storage for files
-    const efs = new FileSystem(this, "FS", {
-      vpc,
-      encrypted: true, // file system is not encrypted by default
-      lifecyclePolicy: LifecyclePolicy.AFTER_60_DAYS, // files are not transitioned to infrequent access (IA) storage by default
-      performanceMode: PerformanceMode.GENERAL_PURPOSE, // default
-    });
+    // create mount for file storage
+    // const fsAccessPoint = fs.addAccessPoint("Pictrs", {
+    // path: "/pictrs",
+    // posixUser: { gid: "991", uid: "991" }, // https://git.asonix.dog/asonix/pict-rs/src/branch/main/docker/prod/Dockerfile.amd64
+    // });
+    // fsAccessPoint.
+    const assetVolume: Volume = {
+      efsVolumeConfiguration: {
+        // fileSystemId: fsAccessPoint.fileSystem.fileSystemId,
+        fileSystemId: fs.fileSystemId,
+        // authorizationConfig: { accessPointId: fsAccessPoint.accessPointId },
+        // transitEncryption: "ENABLED",
+        // rootDirectory: "/pictrs",
+      },
+      name: "assets",
+    };
 
     // ECS
     const taskDef = new FargateTaskDefinition(this, "Task", {
       cpu: 256,
       memoryLimitMiB: 512,
-      volumes: [
-        // mount storage
-        {
-          efsVolumeConfiguration: {
-            fileSystemId: efs.fileSystemId,
-            rootDirectory: "/mnt",
-          },
-          name: "assets",
-        },
-      ],
+      volumes: [assetVolume],
     });
-
     const container = taskDef.addContainer("Container", {
       image: ContainerImage.fromRegistry(PICTRS_IMAGE),
       logging: LogDriver.awsLogs({ streamPrefix: PICTRS_NAME }),
+      environment: { PICTRS_PATH: "/mnt/assets" },
+    });
+    // mount asset storage volume
+    container.addMountPoints({
+      sourceVolume: assetVolume.name,
+      containerPath: "/mnt/assets",
+      readOnly: false,
     });
     // map port
     container.addPortMappings({
@@ -83,12 +91,11 @@ export class Pictrs extends core.Construct {
     });
 
     lemmyLB.pictrsTargetGroup.addTarget(service);
-    efs.connections.allowDefaultPortFrom(
-      service,
+    fs.connections.allowDefaultPortFrom(
+      secGroup,
       "Allow from Pictrs container"
     );
 
-    this.efs = efs;
     this.securityGroup = secGroup;
   }
 }

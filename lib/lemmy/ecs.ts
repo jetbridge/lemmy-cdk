@@ -3,6 +3,7 @@ import * as ecs from "@aws-cdk/aws-ecs";
 import { ServerlessCluster } from "@aws-cdk/aws-rds";
 import { NamespaceType } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
+import { FileSystem } from "@aws-cdk/aws-efs";
 import { LemmyApp } from "./app";
 import { IFramely, IFRAMELY_PORT } from "./iframely";
 import { LemmyLoadBalancer } from "./loadbalancer";
@@ -13,6 +14,7 @@ export interface IECSProps {
   lemmyLB: LemmyLoadBalancer;
   db: ServerlessCluster;
   dbSecurityGroup: SecurityGroup;
+  fs: FileSystem;
 }
 
 export class LemmyECS extends core.Construct {
@@ -34,8 +36,11 @@ export class LemmyECS extends core.Construct {
     const serviceProps = { ...props, cluster, namespace };
 
     const lemmyApp = new LemmyApp(this, "LemmyApp", serviceProps);
-    const pictrs = new Pictrs(this, "Pictrs", serviceProps);
     const iframely = new IFramely(this, "IFramely", serviceProps);
+    const pictrs = new Pictrs(this, "Pictrs", {
+      ...serviceProps,
+      fs: props.fs,
+    });
 
     pictrs.securityGroup.addIngressRule(
       lemmyApp.backendSecurityGroup,

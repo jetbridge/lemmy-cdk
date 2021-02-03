@@ -1,6 +1,7 @@
 import { Certificate } from "@aws-cdk/aws-certificatemanager";
 import { Vpc } from "@aws-cdk/aws-ec2";
 import {
+  AddApplicationActionProps,
   ApplicationLoadBalancer,
   ApplicationProtocol,
   ApplicationTargetGroup,
@@ -59,8 +60,6 @@ export class LemmyLoadBalancer extends core.Construct {
       healthCheck: {
         interval: Duration.seconds(10),
         healthyThresholdCount: 2,
-        port: "1234", // TODO: maybe not needed?
-        path: "/static/assets/manifest.webmanifest", // temp - should be /
       },
     });
     // target group for pictrs
@@ -73,7 +72,7 @@ export class LemmyLoadBalancer extends core.Construct {
       healthCheck: {
         interval: Duration.seconds(10),
         healthyThresholdCount: 2,
-        port: PICTRS_PORT.toString(),
+        healthyHttpCodes: "200,404", // TODO: good health check endpoint?
       },
     });
     // target group for iframely
@@ -86,7 +85,7 @@ export class LemmyLoadBalancer extends core.Construct {
       healthCheck: {
         interval: Duration.seconds(10),
         healthyThresholdCount: 2,
-        port: IFRAMELY_PORT.toString(),
+        healthyHttpCodes: "302",
       },
     });
 
@@ -103,6 +102,7 @@ export class LemmyLoadBalancer extends core.Construct {
       open: true,
       defaultTargetGroups: [frontendTg],
       certificates: [
+        // TODO: config
         Certificate.fromCertificateArn(
           this,
           "FedDevCert",
@@ -112,24 +112,24 @@ export class LemmyLoadBalancer extends core.Construct {
     });
     httpListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
 
-    const routes = [
+    const routes: AddApplicationActionProps[] = [
       // /api/* -> backend
       {
         action: ListenerAction.forward([backendTg]),
-        conditions: [ListenerCondition.pathPatterns(["/api/*"])],
+        conditions: [ListenerCondition.pathPatterns(["/api/*", "/pictrs/*"])],
         priority: 1,
       },
-      // /pictrs/*
-      {
-        action: ListenerAction.forward([pictrsTg]),
-        conditions: [ListenerCondition.pathPatterns(["/pictrs/*"])],
-        priority: 2,
-      },
+      // /pictrs/* DISABLED
+      // {
+      //   action: ListenerAction.forward([pictrsTg]),
+      //   conditions: [ListenerCondition.pathPatterns(["/zzzzpictrs/*"])],
+      //   priority: 2,
+      // },
       // /iframely/*
       {
         action: ListenerAction.forward([iframelyTg]),
         conditions: [ListenerCondition.pathPatterns(["/iframely/*"])],
-        priority: 3,
+        priority: 2,
       },
     ];
     routes.forEach((routeAction, index) => {

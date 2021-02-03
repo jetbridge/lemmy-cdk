@@ -69,20 +69,20 @@ export class LemmyApp extends core.Construct {
 
     // ensure lemmy config exists
     const lemmyDir = `${CDK_ROOT}/../lemmy`;
-    const confDir = `${lemmyDir}/config`;
-    const confPath = `${confDir}/config.hjson`;
-    if (!fs.existsSync(confDir)) fs.mkdirSync(confDir);
-    if (!fs.existsSync(confPath)) {
-      const confFd = fs.openSync(confPath, "w");
-      fs.writeSync(
-        confFd,
-        JSON.stringify({
-          // defaults
-          hostname: "localhost:8536",
-        })
-      );
-      fs.closeSync(confFd);
-    }
+    // const confDir = `${lemmyDir}/config`;
+    // const confPath = `${confDir}/config.hjson`;
+    // if (!fs.existsSync(confDir)) fs.mkdirSync(confDir);
+    // if (!fs.existsSync(confPath)) {
+    //   const confFd = fs.openSync(confPath, "w");
+    //   fs.writeSync(
+    //     confFd,
+    //     JSON.stringify({
+    //       // defaults
+    //       hostname: "localhost:8536",
+    //     })
+    //   );
+    //   fs.closeSync(confFd);
+    // }
     // TODO: ensure using cutomized dockerfile that copies config.hjson to /config/config.hjson
 
     // ECS
