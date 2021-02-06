@@ -6,30 +6,28 @@ import {
   IHostedZone,
   RecordTarget,
 } from "@aws-cdk/aws-route53";
-import { LoadBalancerTarget } from "@aws-cdk/aws-route53-targets";
+import { CloudFrontTarget } from "@aws-cdk/aws-route53-targets";
 import * as core from "@aws-cdk/core";
+import { SiteCDN } from "../cdn";
 
 interface IDomainProps {
-  loadBalancer: ApplicationLoadBalancer;
   zone: IHostedZone;
+  cdn: SiteCDN;
 }
 export class LemmyDomain extends core.Construct {
-  constructor(
-    scope: core.Construct,
-    id: string,
-    { loadBalancer, zone }: IDomainProps
-  ) {
+  constructor(scope: core.Construct, id: string, { zone, cdn }: IDomainProps) {
     super(scope, id);
 
-    // Load balancer target
-    const target = RecordTarget.fromAlias(new LoadBalancerTarget(loadBalancer));
+    // CDN target
+    const target = RecordTarget.fromAlias(
+      new CloudFrontTarget(cdn.distribution)
+    );
 
     // create A, AAAA, CNAME for www.
-    // point at Load Balancer
     const recordProps = {
       zone,
       target,
-      comment: "Lemmy load balancer",
+      comment: "Lemmy CDN",
     };
     const aRec = new ARecord(this, "LemmyAWebRecord", {
       ...recordProps,

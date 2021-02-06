@@ -35,6 +35,7 @@ export class LemmyECS extends core.Construct {
 
     const serviceProps = { ...props, cluster, namespace };
 
+    // TODO: pack multiple definitions into one service?
     const lemmyApp = new LemmyApp(this, "LemmyApp", serviceProps);
     const iframely = new IFramely(this, "IFramely", serviceProps);
     const pictrs = new Pictrs(this, "Pictrs", {

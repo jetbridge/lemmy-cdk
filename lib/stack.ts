@@ -8,13 +8,17 @@ import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
 import ec2 = require("@aws-cdk/aws-ec2");
 import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
 import { RemovalPolicy } from "@aws-cdk/core";
+import { SiteCDN } from "./cdn";
 
 export class Stack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     // VPC
-    const vpc = new ec2.Vpc(this, "VPC");
+    const vpc = new ec2.Vpc(this, "VPC", {
+      // increase this if you want to be highly available. costs more.
+      natGateways: 1,
+    });
 
     // Bastion
     const bastion = new Bastion(this, "Bastion", { vpc });
@@ -30,10 +34,14 @@ export class Stack extends cdk.Stack {
       vpc,
     });
 
+    // CDN
+    const cdn = new SiteCDN(this, "CDN", { lemmyLB: loadBalancer });
+
     // DNS
     const domain = new DNS(this, "DNS", {
       loadBalancer: loadBalancer.alb,
       bastion,
+      cdn,
     });
 
     // EFS - storage for files

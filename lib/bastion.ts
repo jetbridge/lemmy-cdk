@@ -7,6 +7,7 @@ import {
   Vpc,
 } from "@aws-cdk/aws-ec2";
 import * as core from "@aws-cdk/core";
+import { siteConfig } from "./config";
 
 interface IBastionProps {
   vpc: Vpc;
@@ -38,7 +39,7 @@ export class Bastion extends core.Construct {
       instanceId: host.instanceId,
     });
 
-    host.allowSshAccessFrom(Peer.ipv4("95.67.0.0/16")); // TODO: config
-    host.instance.instance.keyName = "fedev-ore-2020"; // TODO: config
+    siteConfig.sshAllowedHosts.map((peer) => host.allowSshAccessFrom(peer));
+    host.instance.instance.keyName = siteConfig.bastionKeypairName;
   }
 }

@@ -2,9 +2,7 @@ import { Certificate } from "@aws-cdk/aws-certificatemanager";
 import { Vpc } from "@aws-cdk/aws-ec2";
 import {
   AddApplicationActionProps,
-  ApplicationLoadBalancer,
   ApplicationProtocol,
-  ApplicationTargetGroup,
   IpAddressType,
   ListenerAction,
   ListenerCondition,
@@ -12,8 +10,13 @@ import {
 } from "@aws-cdk/aws-elasticloadbalancingv2";
 import * as core from "@aws-cdk/core";
 import { Duration } from "@aws-cdk/core";
+import { siteConfig } from "../config";
 import { IFRAMELY_PORT } from "./iframely";
 import { PICTRS_PORT } from "./pictrs";
+import {
+  ApplicationLoadBalancer,
+  ApplicationTargetGroup,
+} from "@aws-cdk/aws-elasticloadbalancingv2";
 
 interface ILBProps {
   vpc: Vpc;
@@ -102,11 +105,10 @@ export class LemmyLoadBalancer extends core.Construct {
       open: true,
       defaultTargetGroups: [frontendTg],
       certificates: [
-        // TODO: config
         Certificate.fromCertificateArn(
           this,
           "FedDevCert",
-          "arn:aws:acm:us-west-2:450542611688:certificate/68f4c06e-b71e-4c71-bd89-7ee5efc0233b"
+          siteConfig.siteCertificateArn
         ),
       ],
     });
@@ -119,16 +121,10 @@ export class LemmyLoadBalancer extends core.Construct {
         conditions: [ListenerCondition.pathPatterns(["/api/*", "/pictrs/*"])],
         priority: 1,
       },
-      // /pictrs/* DISABLED
-      // {
-      //   action: ListenerAction.forward([pictrsTg]),
-      //   conditions: [ListenerCondition.pathPatterns(["/zzzzpictrs/*"])],
-      //   priority: 2,
-      // },
       // /iframely/*
       {
         action: ListenerAction.forward([iframelyTg]),
-        conditions: [ListenerCondition.pathPatterns(["/iframely/*"])],
+        conditions: [ListenerCondition.pathPatterns(["/iframely/*"])], // NEEDS REWRITING
         priority: 2,
       },
     ];
