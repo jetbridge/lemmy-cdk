@@ -9,3 +9,5 @@ cdk.out
 
 # config files
 .env.local
+
+!lib/edge-lambda/*.js
