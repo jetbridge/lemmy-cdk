@@ -2,7 +2,8 @@
 
 [Lemmy](https://github.com/LemmyNet/lemmy) is a Reddit-style federated social network that speaks ActivityPub. It is written in Rust.
 
-This contains the necessary infrastructure definitions to deploy [Lemmy](https://github.com/LemmyNet/lemmy) to AWS. Feel free to customize!
+This contains the necessary infrastructure definitions to deploy [Lemmy](https://github.com/LemmyNet/lemmy)
+to AWS using their [Cloud Development Kit](https://docs.aws.amazon.com/cdk/latest/guide/home.html).
 
 
 ### Included:
@@ -31,7 +32,9 @@ cp example.env.local .env.local
 You should edit .env.local with your site settings.
 
 ```shell
+npm install -g aws-cdk
 npm install
+cdk bootstrap
 cdk deploy
 ```
 
