@@ -9,9 +9,12 @@ import {
 import {
   CloudFrontTarget,
   LoadBalancerTarget,
+  BucketWebsiteTarget,
 } from "@aws-cdk/aws-route53-targets";
 import * as core from "@aws-cdk/core";
 import { SiteCDN } from "../cdn";
+import { Bucket } from "@aws-cdk/aws-s3";
+import { siteConfig } from "../config";
 
 interface IDomainProps {
   zone: IHostedZone;
@@ -26,12 +29,21 @@ export class LemmyDomain extends core.Construct {
   ) {
     super(scope, id);
 
+    // Create a S3 website bucket that redirects domainName to www.domainName
+    const redirBucket = new Bucket(this, "RedirectToWWWBucket", {
+      bucketName: siteConfig.siteDomainName,
+      websiteRedirect: { hostName: `www.${siteConfig.siteDomainName}` },
+    });
+
     // CDN target
     const cdnTarget = RecordTarget.fromAlias(
       new CloudFrontTarget(cdn.distribution)
     );
     const apiTarget = RecordTarget.fromAlias(
       new LoadBalancerTarget(lemmyLoadBalancer)
+    );
+    const redirWWWTarget = RecordTarget.fromAlias(
+      new BucketWebsiteTarget(redirBucket)
     );
 
     // API
@@ -48,25 +60,30 @@ export class LemmyDomain extends core.Construct {
       recordName: "api",
     });
 
-    // create A, AAAA, CNAME for www.
-    // A, AAAA for api.
-    const recordProps = {
+    // root domainName - redirects to www.
+    new ARecord(this, "LemmyAWebRecord", {
       zone,
-      target: cdnTarget,
-      comment: "Lemmy CDN",
-    };
-    const aRec = new ARecord(this, "LemmyAWebRecord", {
-      ...recordProps,
+      target: redirWWWTarget,
       recordName: "",
     });
     new AaaaRecord(this, "LemmyAAAAWebRecord", {
-      ...recordProps,
+      zone,
+      target: redirWWWTarget,
       recordName: "",
     });
-    new CnameRecord(this, "LemmyCNAMEWWWRecord", {
+
+    // www
+    new ARecord(this, "LemmyWWWARecord", {
       recordName: "www",
-      domainName: zone.zoneName,
-      ...recordProps,
+      target: cdnTarget,
+      zone,
+      comment: "Site CloudFront",
+    });
+    new AaaaRecord(this, "LemmyWWWAAAARecord", {
+      recordName: "www",
+      target: cdnTarget,
+      zone,
+      comment: "Site CloudFront",
     });
   }
 }
