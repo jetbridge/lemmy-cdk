@@ -8,5 +8,4 @@ node_modules
 cdk.out
 
 # config files
-backend.env
-frontend.env
+.env.local

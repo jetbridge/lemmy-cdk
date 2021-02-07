@@ -9,7 +9,7 @@ import { LemmyDomain } from "./lemmy/dns";
 
 interface IDomainProps {
   lemmyLoadBalancer: ApplicationLoadBalancer;
-  bastion: Bastion;
+  bastion?: Bastion;
   cdn: SiteCDN;
 }
 
@@ -29,12 +29,13 @@ export class DNS extends core.Construct {
     new LemmyDomain(this, "Lemmy", { cdn, zone, lemmyLoadBalancer });
 
     // bastion DNS
-    new ARecord(this, "BastionRecord", {
-      zone,
-      target: RecordTarget.fromIpAddresses(bastion.elasticIp.ref),
-      comment: "Bastion",
-      recordName: "bastion",
-      ttl: Duration.minutes(30),
-    });
+    if (bastion)
+      new ARecord(this, "BastionRecord", {
+        zone,
+        target: RecordTarget.fromIpAddresses(bastion.elasticIp.ref),
+        comment: "Bastion",
+        recordName: "bastion",
+        ttl: Duration.minutes(30),
+      });
   }
 }

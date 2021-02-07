@@ -81,12 +81,9 @@ export class Pictrs extends core.Construct {
       taskDefinition: taskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `${PICTRS_NAME}-v2`,
+      serviceName: `${PICTRS_NAME}`,
       cloudMapOptions: { cloudMapNamespace: namespace, name: PICTRS_NAME },
       securityGroups: [secGroup],
-      // temp for testing to speed up deployments
-      minHealthyPercent: 0,
-      maxHealthyPercent: 0,
     });
 
     // lemmyLB.pictrsTargetGroup.addTarget(service);

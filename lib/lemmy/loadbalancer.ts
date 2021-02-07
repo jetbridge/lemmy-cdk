@@ -28,7 +28,7 @@ export class LemmyLoadBalancer extends core.Construct {
     const lb = new ApplicationLoadBalancer(this, "LemmyLB", {
       vpc,
       internetFacing: true,
-      http2Enabled: true,
+      http2Enabled: false,
       ipAddressType: IpAddressType.IPV4, // dual-stack would be nice, not super easy to do yet
     });
 
@@ -65,24 +65,9 @@ export class LemmyLoadBalancer extends core.Construct {
       // route requests to frontend by default
       defaultTargetGroups: [frontendTg],
     });
-    const httpsListener = lb.addListener("FrontendHTTPSListener", {
-      protocol: ApplicationProtocol.HTTPS,
-      open: true,
-      // route requests to frontend by default
-      defaultTargetGroups: [frontendTg],
-      certificates: [
-        {
-          certificateArn:
-            // must be in region of stack
-            // TODO: config
-            "arn:aws:acm:us-west-2:450542611688:certificate/68f4c06e-b71e-4c71-bd89-7ee5efc0233b",
-        },
-      ],
-    });
 
     // TODO: limit to CF and internal services
     httpListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
-    httpsListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
     const action = {
       // /api/* and /pictrs/* -> backend
       action: ListenerAction.forward([backendTg]),
@@ -90,7 +75,27 @@ export class LemmyLoadBalancer extends core.Construct {
       priority: 1,
     };
     httpListener.addAction(`BackendHTTPAPIRouter`, action);
-    httpsListener.addAction(`BackendHTTPSAPIRouter`, action);
+
+    // HTTPS listener, if enabled
+    if (siteConfig.httpsEnabled && siteConfig.siteCertificateArn) {
+      const httpsListener = lb.addListener("FrontendHTTPSListener", {
+        protocol: ApplicationProtocol.HTTPS,
+        open: true,
+        // route requests to frontend by default
+        defaultTargetGroups: [frontendTg],
+        certificates: [
+          {
+            certificateArn:
+              // must be in region of stack
+              siteConfig.siteCertificateArn,
+          },
+        ],
+      });
+      httpsListener.connections.allowDefaultPortFromAnyIpv4(
+        "Open to the world"
+      );
+      httpsListener.addAction(`BackendHTTPSAPIRouter`, action);
+    }
 
     this.backendTargetGroup = backendTg;
     this.frontendTargetGroup = frontendTg;

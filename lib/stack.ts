@@ -9,6 +9,7 @@ import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
 import { RemovalPolicy } from "@aws-cdk/core";
 import { SiteCDN } from "./cdn";
 import { IFramelyLoadBalancer } from "./lemmy/iframely";
+import { siteConfig } from "./config";
 
 export class Stack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -20,14 +21,17 @@ export class Stack extends cdk.Stack {
       natGateways: 1,
     });
 
-    // Bastion
-    const bastion = new Bastion(this, "Bastion", { vpc });
-
     // DB
     const db = new Database(this, "DB", {
       vpc,
     });
-    db.securityGroup.addIngressRule(bastion.securityGroup, Port.tcp(5432));
+
+    // Bastion host
+    let bastion;
+    if (siteConfig.bastionKeypairName) {
+      bastion = new Bastion(this, "Bastion", { vpc });
+      db.securityGroup.addIngressRule(bastion.securityGroup, Port.tcp(5432));
+    }
 
     // EFS - storage for files
     const fs = new FileSystem(this, "FS", {

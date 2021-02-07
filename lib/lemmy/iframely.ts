@@ -13,7 +13,6 @@ import {
   ApplicationProtocol,
   ApplicationTargetGroup,
   IpAddressType,
-  ListenerAction,
   TargetType,
 } from "@aws-cdk/aws-elasticloadbalancingv2";
 import { INamespace } from "@aws-cdk/aws-servicediscovery";
@@ -36,7 +35,7 @@ export class IFramelyLoadBalancer extends core.Construct {
     const lb = new ApplicationLoadBalancer(this, "IFramelyLB", {
       vpc,
       internetFacing: true,
-      http2Enabled: true,
+      http2Enabled: false,
       ipAddressType: IpAddressType.IPV4, // dual-stack would be nice, not super easy to do yet
     });
 
@@ -109,12 +108,9 @@ export class IFramely extends core.Construct {
       taskDefinition: taskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `${IFRAMELY_NAME}-v1`,
+      serviceName: `${IFRAMELY_NAME}`,
       cloudMapOptions: { cloudMapNamespace: namespace, name: IFRAMELY_NAME },
       securityGroups: [secGroup],
-      // temp for testing to speed up deployments
-      minHealthyPercent: 0,
-      maxHealthyPercent: 0,
     });
 
     iframelyLoadBalancer.iframelyTargetGroup.addTarget(service);

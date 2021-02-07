@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 import * as cdk from "@aws-cdk/core";
 import "source-map-support/register";
+import { siteConfig } from "../lib/config";
 import { Stack } from "../lib/stack";
 
-const envProd = { account: "450542611688", region: "us-west-2" };
+const envProd = {
+  account: siteConfig.awsAccount,
+  region: siteConfig.awsRegion,
+};
 
 const app = new cdk.App();
 new Stack(app, "Lemmy", { env: envProd });

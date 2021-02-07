@@ -1,6 +1,7 @@
 import { SecurityGroup, Vpc } from "@aws-cdk/aws-ec2";
-import * as core from "@aws-cdk/core";
 import * as rds from "@aws-cdk/aws-rds";
+import * as core from "@aws-cdk/core";
+import { siteConfig } from "./config";
 
 export const DB_NAME = "lemmy";
 
@@ -33,9 +34,9 @@ export class Database extends core.Construct {
       clusterIdentifier: "lemmy",
       scaling: {
         minCapacity: 2,
-        maxCapacity: 2,
-        autoPause: core.Duration.hours(24),
-      }, // DB goes to sleep after a day of inactivity
+        maxCapacity: siteConfig.dbMaxCapacity,
+        autoPause: core.Duration.hours(siteConfig.dbSleepHours),
+      },
     });
   }
 }

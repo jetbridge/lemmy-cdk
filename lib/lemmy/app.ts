@@ -12,7 +12,6 @@ import { ServerlessCluster } from "@aws-cdk/aws-rds";
 import { Secret } from "@aws-cdk/aws-secretsmanager";
 import { INamespace } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
-import * as fs from "fs";
 import { siteConfig } from "../config";
 import { DB_NAME } from "../database";
 import { IECSProps } from "./ecs";
@@ -23,10 +22,6 @@ interface ILemmyAppProps extends IECSProps {
   cluster: Cluster;
   namespace: INamespace;
 }
-
-const CDK_ROOT = __dirname + `/../..`;
-const BACKEND_ENV = `${CDK_ROOT}/backend.env`;
-const FRONTEND_ENV = `${CDK_ROOT}/frontend.env`;
 
 const BACKEND_PORT = 8536;
 const FRONTEND_PORT = 1234;
@@ -46,6 +41,9 @@ const makeDatabaseUrl = (db: ServerlessCluster) => {
 };
 
 // TODO: split up backend and frontend
+/**
+ * Define backend and frontend tasks
+ */
 export class LemmyApp extends core.Construct {
   backendSecurityGroup: SecurityGroup;
 
@@ -75,23 +73,7 @@ export class LemmyApp extends core.Construct {
       },
     });
 
-    // ensure lemmy config exists
-    const lemmyDir = `${CDK_ROOT}/../lemmy`;
-    // const confDir = `${lemmyDir}/config`;
-    // const confPath = `${confDir}/config.hjson`;
-    // if (!fs.existsSync(confDir)) fs.mkdirSync(confDir);
-    // if (!fs.existsSync(confPath)) {
-    //   const confFd = fs.openSync(confPath, "w");
-    //   fs.writeSync(
-    //     confFd,
-    //     JSON.stringify({
-    //       // defaults
-    //       hostname: "localhost:8536",
-    //     })
-    //   );
-    //   fs.closeSync(confFd);
-    // }
-    // TODO: ensure using cutomized dockerfile that copies config.hjson to /config/config.hjson
+    // path to
 
     // ECS
     const backendTaskDef = new FargateTaskDefinition(this, "BackendTask", {
@@ -100,10 +82,7 @@ export class LemmyApp extends core.Construct {
     });
 
     const backendContainer = backendTaskDef.addContainer("BackendContainer", {
-      image: ContainerImage.fromAsset(
-        lemmyDir
-        // { file: 'docker/prod' }
-      ),
+      image: ContainerImage.fromAsset(siteConfig.lemmyDir),
       environment: {
         // provide secrets
         LEMMY_DATABASE_URL: makeDatabaseUrl(db),
@@ -113,6 +92,7 @@ export class LemmyApp extends core.Construct {
         LEMMY_EXTERNAL_HOST: siteConfig.siteDomainName,
         LEMMY_PICTRS_URL: `http://${PICTRS_NAME}.${namespace.namespaceName}:${PICTRS_PORT}`,
         LEMMY_IFRAMELY_URL: `http://${IFRAMELY_NAME}.${namespace.namespaceName}:${IFRAMELY_PORT}`,
+        LEMMY__RATE_LIMIT__IMAGE: "30",
         RUST_BACKTRACE: "full",
         RUST_LOG: "debug",
       },
@@ -132,12 +112,9 @@ export class LemmyApp extends core.Construct {
       taskDefinition: backendTaskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `backend-v4`,
+      serviceName: `backend`,
       cloudMapOptions: { cloudMapNamespace: namespace, name: "backend" },
       securityGroups: [backendSecGroup],
-      // temp for testing to speed up deployments
-      minHealthyPercent: 0,
-      maxHealthyPercent: 0,
     });
     lemmyLoadBalancer.backendTargetGroup.addTarget(backendService);
     // allow backend to talk to DB
@@ -152,7 +129,7 @@ export class LemmyApp extends core.Construct {
     const frontendContainer = frontendTaskDef.addContainer(
       "FrontendContainer",
       {
-        image: ContainerImage.fromAsset(`${CDK_ROOT}/../ui`),
+        image: ContainerImage.fromAsset(siteConfig.lemmyUiDir),
         environment: {
           LEMMY_INTERNAL_HOST: `backend.${namespace.namespaceName}:${BACKEND_PORT}`,
           LEMMY_EXTERNAL_HOST: siteConfig.siteDomainName,
@@ -178,12 +155,9 @@ export class LemmyApp extends core.Construct {
       taskDefinition: frontendTaskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `frontend-v4`,
+      serviceName: `frontend`,
       cloudMapOptions: { cloudMapNamespace: namespace, name: "frontend" },
       securityGroups: [frontendSecGroup],
-      // temp for testing to speed up deployments
-      minHealthyPercent: 0,
-      maxHealthyPercent: 0,
     });
     lemmyLoadBalancer.frontendTargetGroup.addTarget(frontendService);
 
