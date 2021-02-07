@@ -21,6 +21,7 @@ This generates an ECS Fargate cluster with an Application Load Balancer and serv
   ```
 * ```
   npm install
+  cdk bootstrap aws:///us-east-1
   cdk deploy
   ```
 

@@ -1,4 +1,4 @@
-import { Port, SecurityGroup } from "@aws-cdk/aws-ec2";
+import { SecurityGroup } from "@aws-cdk/aws-ec2";
 import {
   Cluster,
   ContainerImage,
@@ -6,13 +6,12 @@ import {
   FargateService,
   FargateTaskDefinition,
   LogDriver,
-  Volume,
   Protocol,
+  Volume,
 } from "@aws-cdk/aws-ecs";
 import { FileSystem } from "@aws-cdk/aws-efs";
 import { INamespace } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
-import { Duration } from "@aws-cdk/core";
 import { IECSProps } from "./ecs";
 
 interface IPictrsProps extends IECSProps {
@@ -31,7 +30,7 @@ export class Pictrs extends core.Construct {
   constructor(
     scope: core.Construct,
     id: string,
-    { vpc, cluster, namespace, lemmyLB, fs }: IPictrsProps
+    { vpc, cluster, namespace, lemmyLoadBalancer, fs }: IPictrsProps
   ) {
     super(scope, id);
 
@@ -90,7 +89,7 @@ export class Pictrs extends core.Construct {
       maxHealthyPercent: 0,
     });
 
-    lemmyLB.pictrsTargetGroup.addTarget(service);
+    // lemmyLB.pictrsTargetGroup.addTarget(service);
     fs.connections.allowDefaultPortFrom(
       secGroup,
       "Allow from Pictrs container"

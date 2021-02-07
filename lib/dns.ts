@@ -8,7 +8,7 @@ import { siteConfig } from "./config";
 import { LemmyDomain } from "./lemmy/dns";
 
 interface IDomainProps {
-  loadBalancer: ApplicationLoadBalancer;
+  lemmyLoadBalancer: ApplicationLoadBalancer;
   bastion: Bastion;
   cdn: SiteCDN;
 }
@@ -17,7 +17,7 @@ export class DNS extends core.Construct {
   constructor(
     scope: core.Construct,
     id: string,
-    { loadBalancer, bastion, cdn }: IDomainProps
+    { lemmyLoadBalancer, bastion, cdn }: IDomainProps
   ) {
     super(scope, id);
 
@@ -26,7 +26,7 @@ export class DNS extends core.Construct {
     });
 
     // CDN DNS
-    new LemmyDomain(this, "Lemmy", { cdn, zone });
+    new LemmyDomain(this, "Lemmy", { cdn, zone, lemmyLoadBalancer });
 
     // bastion DNS
     new ARecord(this, "BastionRecord", {

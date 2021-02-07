@@ -13,6 +13,7 @@ import { Secret } from "@aws-cdk/aws-secretsmanager";
 import { INamespace } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
 import * as fs from "fs";
+import { siteConfig } from "../config";
 import { DB_NAME } from "../database";
 import { IECSProps } from "./ecs";
 import { IFRAMELY_NAME, IFRAMELY_PORT } from "./iframely";
@@ -51,7 +52,14 @@ export class LemmyApp extends core.Construct {
   constructor(
     scope: core.Construct,
     id: string,
-    { lemmyLB, vpc, dbSecurityGroup, db, cluster, namespace }: ILemmyAppProps
+    {
+      lemmyLoadBalancer,
+      vpc,
+      dbSecurityGroup,
+      db,
+      cluster,
+      namespace,
+    }: ILemmyAppProps
   ) {
     super(scope, id);
 
@@ -101,8 +109,8 @@ export class LemmyApp extends core.Construct {
         LEMMY_DATABASE_URL: makeDatabaseUrl(db),
         LEMMY_JWT_SECRET: appSecrets.secretValueFromJson("jwt").toString(),
         // lemmy config (TODO: move)
-        LEMMY_HOSTNAME: "federation.dev",
-        LEMMY_EXTERNAL_HOST: "federation.dev",
+        LEMMY_HOSTNAME: siteConfig.siteDomainName,
+        LEMMY_EXTERNAL_HOST: siteConfig.siteDomainName,
         LEMMY_PICTRS_URL: `http://${PICTRS_NAME}.${namespace.namespaceName}:${PICTRS_PORT}`,
         LEMMY_IFRAMELY_URL: `http://${IFRAMELY_NAME}.${namespace.namespaceName}:${IFRAMELY_PORT}`,
         RUST_BACKTRACE: "full",
@@ -131,7 +139,7 @@ export class LemmyApp extends core.Construct {
       minHealthyPercent: 0,
       maxHealthyPercent: 0,
     });
-    lemmyLB.backendTargetGroup.addTarget(backendService);
+    lemmyLoadBalancer.backendTargetGroup.addTarget(backendService);
     // allow backend to talk to DB
     dbSecurityGroup.addIngressRule(backendSecGroup, Port.tcp(5432));
 
@@ -147,7 +155,8 @@ export class LemmyApp extends core.Construct {
         image: ContainerImage.fromAsset(`${CDK_ROOT}/../ui`),
         environment: {
           LEMMY_INTERNAL_HOST: `backend.${namespace.namespaceName}:${BACKEND_PORT}`,
-          LEMMY_EXTERNAL_HOST: "federation.dev",
+          LEMMY_EXTERNAL_HOST: siteConfig.siteDomainName,
+          LEMMY_WS_HOST: `api.${siteConfig.siteDomainName}`,
           LEMMY_HTTPS: "true",
         },
         // environmentFiles: [EnvironmentFile.fromAsset(FRONTEND_ENV)],
@@ -176,7 +185,7 @@ export class LemmyApp extends core.Construct {
       minHealthyPercent: 0,
       maxHealthyPercent: 0,
     });
-    lemmyLB.frontendTargetGroup.addTarget(frontendService);
+    lemmyLoadBalancer.frontendTargetGroup.addTarget(frontendService);
 
     // allow frontend to talk to backend
     backendSecGroup.addIngressRule(
