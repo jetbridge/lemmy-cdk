@@ -7,6 +7,7 @@ import {
   experimental,
   LambdaEdgeEventType,
   OriginRequestPolicy,
+  CachePolicy,
 } from "@aws-cdk/aws-cloudfront";
 import { LoadBalancerV2Origin } from "@aws-cdk/aws-cloudfront-origins";
 import * as core from "@aws-cdk/core";
@@ -60,10 +61,7 @@ export class SiteCDN extends core.Construct {
               "CDNCert",
               siteConfig.siteCertificateArn
             ),
-            domainNames: [
-              siteConfig.siteDomainName,
-              `www.${siteConfig.siteDomainName}`,
-            ],
+            domainNames: [siteConfig.webDomain],
           }
         : {}),
 
@@ -75,6 +73,7 @@ export class SiteCDN extends core.Construct {
           : ViewerProtocolPolicy.ALLOW_ALL,
         allowedMethods: AllowedMethods.ALLOW_ALL,
         originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
+        cachePolicy: CachePolicy.CACHING_DISABLED, // TODO: enable for UI stuff
       },
       additionalBehaviors: {
         // route iframely traffic

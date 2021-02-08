@@ -38,8 +38,14 @@ class SiteConfig {
     return env.CERTIFICATE_ARN;
   }
 
+  // e.g. federation.dev
   get siteDomainName() {
     return env.SITE_DOMAIN_NAME;
+  }
+
+  // e.g. www.federation.dev
+  get webDomain() {
+    return `www.${this.siteDomainName}`;
   }
 
   get sshAllowedHosts() {

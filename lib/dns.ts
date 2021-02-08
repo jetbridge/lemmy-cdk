@@ -6,6 +6,7 @@ import { Bastion } from "./bastion";
 import { SiteCDN } from "./cdn";
 import { siteConfig } from "./config";
 import { LemmyDomain } from "./lemmy/dns";
+import { RootRedirect } from "./root-redirect";
 
 interface IDomainProps {
   lemmyLoadBalancer: ApplicationLoadBalancer;
@@ -25,8 +26,11 @@ export class DNS extends core.Construct {
       domainName: siteConfig.siteDomainName,
     });
 
-    // CDN DNS
+    // CDN DNS (for www. and api.)
     new LemmyDomain(this, "Lemmy", { cdn, zone, lemmyLoadBalancer });
+
+    // root domain - redirects to www.
+    new RootRedirect(this, "RootRedirect", { zone });
 
     // bastion DNS
     if (bastion)
