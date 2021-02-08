@@ -5,14 +5,13 @@ import { NamespaceType } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
 import { FileSystem } from "@aws-cdk/aws-efs";
 import { LemmyApp } from "./app";
-import { IFramely, IFramelyLoadBalancer, IFRAMELY_PORT } from "./iframely";
+import { IFramely, IFRAMELY_PORT } from "./iframely";
 import { LemmyLoadBalancer } from "./loadbalancer";
 import { Pictrs, PICTRS_PORT } from "./pictrs";
 
 export interface IECSProps {
   vpc: Vpc;
   lemmyLoadBalancer: LemmyLoadBalancer;
-  iframelyLoadBalancer: IFramelyLoadBalancer;
   db: ServerlessCluster;
   dbSecurityGroup: SecurityGroup;
   fs: FileSystem;
@@ -38,10 +37,7 @@ export class LemmyECS extends core.Construct {
 
     // TODO: pack multiple definitions into one service?
     const lemmyApp = new LemmyApp(this, "LemmyApp", serviceProps);
-    const iframely = new IFramely(this, "IFramely", {
-      ...serviceProps,
-      iframelyLoadBalancer: props.iframelyLoadBalancer,
-    });
+    const iframely = new IFramely(this, "IFramely", serviceProps);
     const pictrs = new Pictrs(this, "Pictrs", {
       ...serviceProps,
       fs: props.fs,

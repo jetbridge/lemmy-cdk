@@ -1,25 +1,24 @@
 import { Certificate } from "@aws-cdk/aws-certificatemanager";
 import {
-  Distribution,
-  ViewerProtocolPolicy,
   AllowedMethods,
-  OriginProtocolPolicy,
+  CachePolicy,
+  Distribution,
   experimental,
   LambdaEdgeEventType,
+  OriginProtocolPolicy,
   OriginRequestPolicy,
-  CachePolicy,
+  ViewerProtocolPolicy,
 } from "@aws-cdk/aws-cloudfront";
 import { LoadBalancerV2Origin } from "@aws-cdk/aws-cloudfront-origins";
+import { Code, Runtime } from "@aws-cdk/aws-lambda";
 import * as core from "@aws-cdk/core";
 import * as path from "path";
 import { siteConfig } from "./config";
-import { IFramelyLoadBalancer } from "./lemmy/iframely";
+import { IFRAMELY_PORT } from "./lemmy/iframely";
 import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
-import { Runtime, Code } from "@aws-cdk/aws-lambda";
 
 interface ISiteCDNProps {
   lemmyLoadBalancer: LemmyLoadBalancer;
-  iframelyLoadBalancer: IFramelyLoadBalancer;
 }
 
 export class SiteCDN extends core.Construct {
@@ -28,14 +27,18 @@ export class SiteCDN extends core.Construct {
   constructor(scope: core.Construct, id: string, props: ISiteCDNProps) {
     super(scope, id);
 
-    // our load balancers for internal services
+    // our load balancer for internal services
     const lemmyLoadBalancerOrigin = new LoadBalancerV2Origin(
       props.lemmyLoadBalancer.alb,
       { protocolPolicy: OriginProtocolPolicy.HTTP_ONLY }
     );
+    // same LB but different port
     const iframelyLoadBalancerOrigin = new LoadBalancerV2Origin(
-      props.iframelyLoadBalancer.alb,
-      { protocolPolicy: OriginProtocolPolicy.HTTP_ONLY }
+      props.lemmyLoadBalancer.alb,
+      {
+        protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
+        httpPort: IFRAMELY_PORT,
+      }
     );
 
     // edge lambda to rewrite /framely/(.*) paths

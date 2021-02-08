@@ -1,5 +1,6 @@
 import { Vpc } from "@aws-cdk/aws-ec2";
 import {
+  AddApplicationActionProps,
   ApplicationLoadBalancer,
   ApplicationProtocol,
   ApplicationTargetGroup,
@@ -11,6 +12,7 @@ import {
 import * as core from "@aws-cdk/core";
 import { Duration } from "@aws-cdk/core";
 import { siteConfig } from "../config";
+import { IFRAMELY_PORT } from "./iframely";
 
 interface ILBProps {
   vpc: Vpc;
@@ -19,6 +21,7 @@ interface ILBProps {
 export class LemmyLoadBalancer extends core.Construct {
   backendTargetGroup: ApplicationTargetGroup;
   frontendTargetGroup: ApplicationTargetGroup;
+  iframelyTargetGroup: ApplicationTargetGroup;
   alb: ApplicationLoadBalancer;
 
   constructor(scope: core.Construct, id: string, { vpc }: ILBProps) {
@@ -45,6 +48,7 @@ export class LemmyLoadBalancer extends core.Construct {
         healthyThresholdCount: 2,
       },
     });
+
     // target group for lemmy frontend
     const frontendTg = new ApplicationTargetGroup(this, "LemmyFETargetGroup", {
       vpc,
@@ -58,6 +62,31 @@ export class LemmyLoadBalancer extends core.Construct {
       },
     });
 
+    // target group for iframely
+    const iframelyTg = new ApplicationTargetGroup(this, "IFramelyTargetGroup", {
+      vpc,
+      protocol: ApplicationProtocol.HTTP,
+      port: IFRAMELY_PORT,
+      targetType: TargetType.IP,
+      targetGroupName: "IFramely-v2",
+      healthCheck: {
+        interval: Duration.seconds(10),
+        healthyThresholdCount: 2,
+        healthyHttpCodes: "302",
+      },
+    });
+
+    const iframelyHttpListener = lb.addListener("IFramelyHTTPListener", {
+      protocol: ApplicationProtocol.HTTP,
+      open: true,
+      defaultTargetGroups: [iframelyTg],
+      port: IFRAMELY_PORT,
+    });
+    // TODO: limit to CF and internal services
+    iframelyHttpListener.connections.allowDefaultPortFromAnyIpv4(
+      "Open to the world"
+    );
+
     // listener
     const httpListener = lb.addListener("FrontendHTTPListener", {
       protocol: ApplicationProtocol.HTTP,
@@ -68,32 +97,52 @@ export class LemmyLoadBalancer extends core.Construct {
 
     // TODO: limit to CF and internal services
     httpListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
-    const action = {
-      // https://raw.githubusercontent.com/LemmyNet/lemmy/main/ansible/templates/nginx.conf
-      // /api|pictrs|feeds|nodeinfo|.well-known/* -> backend
-      action: ListenerAction.forward([backendTg]),
-      conditions: [
-        // accept: activitypub
-        ListenerCondition.httpHeader("accept", [
-          "application/activity+json",
-          `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`,
-        ]),
-        // POSTs
-        ListenerCondition.httpRequestMethods(["POST"]),
-        // backend requests
-        ListenerCondition.pathPatterns([
-          "/api/*",
-          "/pictrs/*",
-          "/feeds/*",
-          "/nodeinfo*",
-          ".well-known/*",
-        ]),
-      ],
-      priority: 1,
-    };
-    httpListener.addAction(`BackendHTTPAPIRouter`, action);
 
-    // HTTPS listener, if enabled
+    // routing rules
+    // from: https://raw.githubusercontent.com/LemmyNet/lemmy/main/ansible/templates/nginx.conf
+    const actions: AddApplicationActionProps[] = [
+      {
+        // /api|pictrs|feeds|nodeinfo|.well-known/* -> backend
+        action: ListenerAction.forward([backendTg]),
+        conditions: [
+          // backend requests
+          ListenerCondition.pathPatterns([
+            "/api/*",
+            "/pictrs/*",
+            "/feeds/*",
+            "/nodeinfo*",
+            ".well-known/*",
+          ]),
+        ],
+        priority: 10,
+      },
+      {
+        action: ListenerAction.forward([backendTg]),
+        conditions: [
+          // accept: activitypub
+          ListenerCondition.httpHeader("accept", [
+            "application/activity+json",
+            `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`,
+          ]),
+        ],
+        priority: 20,
+      },
+      {
+        action: ListenerAction.forward([backendTg]),
+        conditions: [
+          // POSTs
+          ListenerCondition.httpRequestMethods(["POST"]),
+        ],
+        priority: 30,
+      },
+    ];
+
+    // HTTP listener actions
+    actions.forEach((action, i) =>
+      httpListener.addAction(`HTTPRule${i}`, action)
+    );
+
+    // HTTPS listener actions, if enabled
     if (siteConfig.httpsEnabled && siteConfig.siteCertificateArn) {
       const httpsListener = lb.addListener("FrontendHTTPSListener", {
         protocol: ApplicationProtocol.HTTPS,
@@ -111,11 +160,14 @@ export class LemmyLoadBalancer extends core.Construct {
       httpsListener.connections.allowDefaultPortFromAnyIpv4(
         "Open to the world"
       );
-      httpsListener.addAction(`BackendHTTPSAPIRouter`, action);
+      actions.forEach((action, i) =>
+        httpsListener.addAction(`HTTPSRule${i}`, action)
+      );
     }
 
     this.backendTargetGroup = backendTg;
     this.frontendTargetGroup = frontendTg;
+    this.iframelyTargetGroup = iframelyTg;
     this.alb = lb;
   }
 }

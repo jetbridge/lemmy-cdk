@@ -1,15 +1,14 @@
 import { Port, Vpc } from "@aws-cdk/aws-ec2";
+import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
 import * as cdk from "@aws-cdk/core";
+import { RemovalPolicy } from "@aws-cdk/core";
 import { Bastion } from "./bastion";
+import { SiteCDN } from "./cdn";
+import { siteConfig } from "./config";
 import { Database } from "./database";
 import { DNS } from "./dns";
 import { LemmyECS } from "./lemmy/ecs";
 import { LemmyLoadBalancer } from "./lemmy/loadbalancer";
-import { FileSystem, LifecyclePolicy, PerformanceMode } from "@aws-cdk/aws-efs";
-import { RemovalPolicy } from "@aws-cdk/core";
-import { SiteCDN } from "./cdn";
-import { IFramelyLoadBalancer } from "./lemmy/iframely";
-import { siteConfig } from "./config";
 
 export class Stack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -48,18 +47,10 @@ export class Stack extends cdk.Stack {
     const lemmyLoadBalancer = new LemmyLoadBalancer(this, "LemmyLoadBalancer", {
       vpc,
     });
-    const iframelyLoadBalancer = new IFramelyLoadBalancer(
-      this,
-      "IFramelyLoadBalancer",
-      {
-        vpc,
-      }
-    );
 
     // CDN
     const cdn = new SiteCDN(this, "CDN", {
       lemmyLoadBalancer,
-      iframelyLoadBalancer,
     });
 
     // DNS
@@ -74,7 +65,6 @@ export class Stack extends cdk.Stack {
       vpc,
       fs,
       lemmyLoadBalancer,
-      iframelyLoadBalancer,
       db: db.cluster,
       dbSecurityGroup: db.securityGroup,
     });
