@@ -13,6 +13,8 @@ interface IBastionProps {
   vpc: Vpc;
 }
 
+// Optional EC2 host to provide an entrypoint into the VPC
+// useful for accessing the database
 export class Bastion extends core.Construct {
   securityGroup: SecurityGroup;
   elasticIp: CfnEIP;

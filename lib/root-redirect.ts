@@ -38,7 +38,8 @@ export class RootRedirect extends core.Construct {
       ],
     });
 
-    // N.B. root DNS lives in root-redirect
+    // CloudFront distribution in front of S3 bucket
+    // handles SSL
     const distribution = new Distribution(this, "RedirDistribution", {
       comment: "Redirect to WWW",
       enableLogging: false,
