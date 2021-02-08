@@ -69,9 +69,26 @@ export class LemmyLoadBalancer extends core.Construct {
     // TODO: limit to CF and internal services
     httpListener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
     const action = {
-      // /api/* and /pictrs/* -> backend
+      // https://raw.githubusercontent.com/LemmyNet/lemmy/main/ansible/templates/nginx.conf
+      // /api|pictrs|feeds|nodeinfo|.well-known/* -> backend
       action: ListenerAction.forward([backendTg]),
-      conditions: [ListenerCondition.pathPatterns(["/api/*", "/pictrs/*"])],
+      conditions: [
+        // accept: activitypub
+        ListenerCondition.httpHeader("accept", [
+          "application/activity+json",
+          `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`,
+        ]),
+        // POSTs
+        ListenerCondition.httpRequestMethods(["POST"]),
+        // backend requests
+        ListenerCondition.pathPatterns([
+          "/api/*",
+          "/pictrs/*",
+          "/feeds/*",
+          "/nodeinfo*",
+          ".well-known/*",
+        ]),
+      ],
       priority: 1,
     };
     httpListener.addAction(`BackendHTTPAPIRouter`, action);

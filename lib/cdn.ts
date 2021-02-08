@@ -66,6 +66,7 @@ export class SiteCDN extends core.Construct {
         : {}),
 
       // default behavior is to use our ALB backend
+      // more URL handling rules can be found in lemmy/loadbalancer.ts
       defaultBehavior: {
         origin: lemmyLoadBalancerOrigin,
         viewerProtocolPolicy: siteConfig.httpsEnabled
