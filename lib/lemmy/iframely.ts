@@ -1,20 +1,14 @@
-import { SecurityGroup } from "@aws-cdk/aws-ec2";
 import {
-  Cluster,
+  ContainerDefinition,
   ContainerImage,
-  FargatePlatformVersion,
-  FargateService,
-  FargateTaskDefinition,
   LogDriver,
   Protocol,
+  TaskDefinition,
 } from "@aws-cdk/aws-ecs";
-import { INamespace } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
-import { IECSProps } from "./ecs";
 
-interface IIFramelyProps extends IECSProps {
-  cluster: Cluster;
-  namespace: INamespace;
+interface IIFramelyProps {
+  taskDef: TaskDefinition;
 }
 
 export const IFRAMELY_PORT = 8061;
@@ -22,22 +16,12 @@ export const IFRAMELY_IMAGE = "dogbin/iframely:latest";
 export const IFRAMELY_NAME = "iframely";
 
 export class IFramely extends core.Construct {
-  securityGroup: SecurityGroup;
+  container: ContainerDefinition;
 
-  constructor(
-    scope: core.Construct,
-    id: string,
-    { vpc, cluster, namespace, lemmyLoadBalancer }: IIFramelyProps
-  ) {
+  constructor(scope: core.Construct, id: string, { taskDef }: IIFramelyProps) {
     super(scope, id);
 
-    // ECS
-    const taskDef = new FargateTaskDefinition(this, "Task", {
-      cpu: 256,
-      memoryLimitMiB: 512,
-    });
-
-    const container = taskDef.addContainer("Container", {
+    const container = taskDef.addContainer(IFRAMELY_NAME, {
       image: ContainerImage.fromRegistry(IFRAMELY_IMAGE),
       logging: LogDriver.awsLogs({ streamPrefix: IFRAMELY_NAME }),
     });
@@ -46,21 +30,6 @@ export class IFramely extends core.Construct {
       containerPort: IFRAMELY_PORT,
       protocol: Protocol.TCP,
     });
-    // service
-    const secGroup = new SecurityGroup(this, "SecGroup", { vpc });
-    const service = new FargateService(this, "Service", {
-      cluster,
-      assignPublicIp: true,
-      taskDefinition: taskDef,
-      platformVersion: FargatePlatformVersion.VERSION1_4,
-      desiredCount: 1,
-      serviceName: `${IFRAMELY_NAME}-v2`,
-      cloudMapOptions: { cloudMapNamespace: namespace, name: IFRAMELY_NAME },
-      securityGroups: [secGroup],
-    });
-
-    lemmyLoadBalancer.iframelyTargetGroup.addTarget(service);
-
-    this.securityGroup = secGroup;
+    this.container = container;
   }
 }

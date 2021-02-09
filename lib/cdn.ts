@@ -52,6 +52,17 @@ export class SiteCDN extends core.Construct {
       }
     );
 
+    // do we force browsers to speak HTTPS?
+    const viewerProtocolPolicy = siteConfig.httpsEnabled
+      ? ViewerProtocolPolicy.REDIRECT_TO_HTTPS
+      : ViewerProtocolPolicy.ALLOW_ALL;
+
+    const lemmyBehaviorDefaults = {
+      origin: lemmyLoadBalancerOrigin,
+      viewerProtocolPolicy,
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+    };
+
     this.distribution = new Distribution(this, "SiteCDN", {
       comment: siteConfig.siteDomainName,
       enableLogging: true,
@@ -71,18 +82,21 @@ export class SiteCDN extends core.Construct {
       // default behavior is to use our ALB backend
       // more URL handling rules can be found in lemmy/loadbalancer.ts
       defaultBehavior: {
-        origin: lemmyLoadBalancerOrigin,
-        viewerProtocolPolicy: siteConfig.httpsEnabled
-          ? ViewerProtocolPolicy.REDIRECT_TO_HTTPS
-          : ViewerProtocolPolicy.ALLOW_ALL,
-        allowedMethods: AllowedMethods.ALLOW_ALL,
+        ...lemmyBehaviorDefaults,
         originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
-        cachePolicy: CachePolicy.CACHING_DISABLED, // TODO: enable for UI stuff
+        cachePolicy: CachePolicy.CACHING_DISABLED, // default is no caching
       },
       additionalBehaviors: {
+        // cache static files
+        "/static/*": {
+          ...lemmyBehaviorDefaults,
+          originRequestPolicy: OriginRequestPolicy.CORS_CUSTOM_ORIGIN,
+          cachePolicy: CachePolicy.CACHING_OPTIMIZED,
+        },
+
         // route iframely traffic
         "/iframely/*": {
-          viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          viewerProtocolPolicy,
           originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
           origin: iframelyLoadBalancerOrigin,
 
