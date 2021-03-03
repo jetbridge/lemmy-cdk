@@ -77,13 +77,14 @@ export class SiteCDN extends core.Construct {
           : ViewerProtocolPolicy.ALLOW_ALL,
         allowedMethods: AllowedMethods.ALLOW_ALL,
         originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
-        cachePolicy: CachePolicy.CACHING_DISABLED, // TODO: enable for UI stuff
+        cachePolicy: CachePolicy.CACHING_DISABLED,
       },
       additionalBehaviors: {
         // route iframely traffic
         "/iframely/*": {
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
+          cachePolicy: CachePolicy.CACHING_DISABLED,
           origin: iframelyLoadBalancerOrigin,
 
           // rewrites request path
