@@ -84,7 +84,7 @@ export class SiteCDN extends core.Construct {
       defaultBehavior: {
         ...lemmyBehaviorDefaults,
         originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
-        cachePolicy: CachePolicy.CACHING_DISABLED, // default is no caching
+        cachePolicy: CachePolicy.CACHING_DISABLED,
       },
       additionalBehaviors: {
         // cache static files
@@ -98,6 +98,7 @@ export class SiteCDN extends core.Construct {
         "/iframely/*": {
           viewerProtocolPolicy,
           originRequestPolicy: OriginRequestPolicy.ALL_VIEWER, // pass along headers and cookies
+          cachePolicy: CachePolicy.CACHING_DISABLED,
           origin: iframelyLoadBalancerOrigin,
 
           // rewrites request path
