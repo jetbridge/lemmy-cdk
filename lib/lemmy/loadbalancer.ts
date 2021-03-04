@@ -12,6 +12,8 @@ import {
 import * as core from "@aws-cdk/core";
 import { Duration } from "@aws-cdk/core";
 import { siteConfig } from "../config";
+import { BACKEND_PORT } from "./backend";
+import { FRONTEND_PORT } from "./frontend";
 import { IFRAMELY_PORT } from "./iframely";
 
 interface ILBProps {
@@ -31,7 +33,7 @@ export class LemmyLoadBalancer extends core.Construct {
     const lb = new ApplicationLoadBalancer(this, "LemmyLB", {
       vpc,
       internetFacing: true,
-      http2Enabled: false,
+      http2Enabled: true,
       ipAddressType: IpAddressType.IPV4, // dual-stack would be nice, not super easy to do yet
     });
 
@@ -39,7 +41,7 @@ export class LemmyLoadBalancer extends core.Construct {
     const backendTg = new ApplicationTargetGroup(this, "LemmyBETargetGroup", {
       vpc,
       protocol: ApplicationProtocol.HTTP,
-      port: 8536,
+      port: BACKEND_PORT,
       targetGroupName: "Lemmy-Backend",
       targetType: TargetType.IP,
       healthCheck: {
@@ -53,7 +55,7 @@ export class LemmyLoadBalancer extends core.Construct {
     const frontendTg = new ApplicationTargetGroup(this, "LemmyFETargetGroup", {
       vpc,
       protocol: ApplicationProtocol.HTTP,
-      port: 1234,
+      port: FRONTEND_PORT,
       targetType: TargetType.IP,
       targetGroupName: "Lemmy-Frontend",
       healthCheck: {

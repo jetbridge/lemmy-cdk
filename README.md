@@ -38,6 +38,9 @@ cdk bootstrap
 cdk deploy
 ```
 
+## Cost
+This is *not* the cheapest way to run Lemmy. The Serverless Aurora DB can run you ~$90/mo if it doesn't go to sleep.
+
 ## Useful CDK commands
 
 * `npm run build`   compile typescript to js
