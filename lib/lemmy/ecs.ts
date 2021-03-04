@@ -76,15 +76,13 @@ export class LemmyECS extends core.Construct {
 
     // service
     const secGroup = new SecurityGroup(this, "SecGroup", { vpc });
-    const lemmyService = new FargateService(this, "BackendService", {
+    const lemmyService = new FargateService(this, "LemmyService", {
       cluster,
-      // namespace,
       assignPublicIp: true, // or false, whatever
       taskDefinition: taskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `lemmy`,
-      // cloudMapOptions: { cloudMapNamespace: namespace, name: "lemmy" },
+      serviceName: `lemmy-v2`,
       securityGroups: [secGroup],
     });
     lemmyService.registerLoadBalancerTargets;
