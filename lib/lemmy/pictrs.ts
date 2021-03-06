@@ -15,7 +15,7 @@ interface IPictrsProps {
 
 export const PICTRS_PORT = 8080;
 export const PICTRS_NAME = "pictrs";
-const PICTRS_IMAGE = "asonix/pictrs:v0.2.5-r0";
+const PICTRS_IMAGE = "asonix/pictrs:v0.3.0-alpha.7-r0";
 
 export class Pictrs extends core.Construct {
   securityGroup: SecurityGroup;
@@ -31,6 +31,7 @@ export class Pictrs extends core.Construct {
       image: ContainerImage.fromRegistry(PICTRS_IMAGE),
       logging: LogDriver.awsLogs({ streamPrefix: PICTRS_NAME }),
       environment: { PICTRS_PATH: "/mnt/assets" },
+      command: ["/usr/local/bin/pict-rs"],
     });
     // mount asset storage volume
     container.addMountPoints({

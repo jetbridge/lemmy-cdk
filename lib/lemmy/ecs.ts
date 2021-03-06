@@ -82,7 +82,7 @@ export class LemmyECS extends core.Construct {
       taskDefinition: taskDef,
       platformVersion: FargatePlatformVersion.VERSION1_4,
       desiredCount: 1,
-      serviceName: `lemmy-v2`,
+      serviceName: "lemmy",
       securityGroups: [secGroup],
     });
     lemmyService.registerLoadBalancerTargets;
