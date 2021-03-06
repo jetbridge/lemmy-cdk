@@ -4,8 +4,8 @@ import { ServerlessCluster } from "@aws-cdk/aws-rds";
 import { NamespaceType } from "@aws-cdk/aws-servicediscovery";
 import * as core from "@aws-cdk/core";
 import { FileSystem } from "@aws-cdk/aws-efs";
-import { LemmyFrontend } from "./frontend";
-import { IFramely, IFRAMELY_PORT } from "./iframely";
+import { FRONTEND_NAME, LemmyFrontend } from "./frontend";
+import { IFramely, IFRAMELY_NAME, IFRAMELY_PORT } from "./iframely";
 import { LemmyLoadBalancer } from "./loadbalancer";
 import { Pictrs, PICTRS_PORT } from "./pictrs";
 import {
@@ -14,7 +14,7 @@ import {
   Volume,
   FargateTaskDefinition,
 } from "@aws-cdk/aws-ecs";
-import { LemmyBackend } from "./backend";
+import { BACKEND_NAME, LemmyBackend } from "./backend";
 
 export interface IECSProps {
   vpc: Vpc;
@@ -85,12 +85,17 @@ export class LemmyECS extends core.Construct {
       serviceName: "lemmy",
       securityGroups: [secGroup],
     });
-    lemmyService.registerLoadBalancerTargets;
 
     // all target groups point at our ECS service, on different ports
-    const a = lemmyLoadBalancer.frontendTargetGroup.addTarget(lemmyService);
-    lemmyLoadBalancer.backendTargetGroup.addTarget(lemmyService);
-    lemmyLoadBalancer.iframelyTargetGroup.addTarget(lemmyService);
+    const a = lemmyLoadBalancer.frontendTargetGroup.addTarget(
+      lemmyService.loadBalancerTarget({ containerName: FRONTEND_NAME })
+    );
+    lemmyLoadBalancer.backendTargetGroup.addTarget(
+      lemmyService.loadBalancerTarget({ containerName: BACKEND_NAME })
+    );
+    lemmyLoadBalancer.iframelyTargetGroup.addTarget(
+      lemmyService.loadBalancerTarget({ containerName: IFRAMELY_NAME })
+    );
 
     // security group allow
     fs.connections.allowDefaultPortFrom(
